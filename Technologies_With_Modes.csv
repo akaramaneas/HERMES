@@ -1,0 +1,5 @@
+﻿TECHNOLOGY,FUEL,AGRR_TECH
+Batteries,Elec_Storage,Batteries_Charge
+Batteries,Elec_Transmission,Batteries_Discharge
+Batteries_New,Elec_Storage,Batteries_New_Charge
+Batteries_New,Elec_Transmission,Batteries_New_Discharge
