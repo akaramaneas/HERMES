@@ -1,10 +1,10 @@
-# OSeMOSYS FAST
+# HERMES
 #
-# Open Source energy MOdeling SYStem
+# HEllenic Regional Model for the Energy System
 # 
 # ============================================================================
 #
-#    Copyright [2010-2015] [OSeMOSYS Forum steering committee see: www.osemosys.org]
+#    Copyright [2010-2026] [OSeMOSYS Forum steering committee see: www.osemosys.org]
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -19,12 +19,11 @@
 #   limitations under the License.
 # ============================================================================
 #
-#  To run OSeMOSYS, enter the following line into your command prompt after replacing FILEPATH & YOURDATAFILE with your folder structure and data file name:
+#  To run HERMES, enter the following line into your command prompt after replacing FILEPATH & YOURDATAFILE with your folder structure and data file name:
 #
-#  C:\...FILEPATH...\glpsol -m C:\...FILEPATH...\OSeMOSYS_2016_08_01_short.txt -d C:\...FILEPATH...\YOURDATAFILE.txt -o C:\...FILEPATH...\Results.txt
+#  
 #
-#  Alternatively, install GUSEK (http://gusek.sourceforge.net/gusek.html) and run the model within this integrated development environment (IDE).
-#  To do so, open the .dat file and select "Use External .dat file" from the Options menu. Then change to the model file and select the "Go" icon or press F5.
+# 
 #
 #                                      #########################################
 ######################                        Model Definition                                #############
