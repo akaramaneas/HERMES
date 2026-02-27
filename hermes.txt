@@ -19,12 +19,6 @@
 #   limitations under the License.
 # ============================================================================
 #
-#  To run HERMES, enter the following line into your command prompt after replacing FILEPATH & YOURDATAFILE with your folder structure and data file name:
-#
-#  
-#
-# 
-#
 #                                      #########################################
 ######################                        Model Definition                                #############
 #                                      #########################################
