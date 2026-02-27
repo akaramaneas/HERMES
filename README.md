@@ -7,7 +7,7 @@ Running HERMES requires installing the GLPK and CPLEX solvers. GLPK is an open s
 
 **Steps to run the model and extract results:**
 
-1. Save all the necessary files in the same folder.
+1. Save all the necessary files in the same folder. To run a scenario, a single Inputs folder is required.
 2. Open the Python Command Prompt.
 3. Enter the command "python convert.py". This command converts the multiple csv input files into an aggregated input .txt file, resembling the function of otoole.
 4. Enter the command "glpsol -m hermes.txt -d data.txt --wlp input.lp --check". This command creates the .lp file that is required to solve the problem via CPLEX.
