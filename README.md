@@ -1,7 +1,9 @@
 # HERMES HEllenic Regional Model for the Electricity System
 This repository includes all the necessary files to run HERMES
 
-HERMES is an electricity model that models the Greek power sector, dissecting it in 21 regions: 10 mainland NUTS-2 regions and 11 major Greek insular grids, being characterised by high temporal, spatial and technological granularity.
+HERMES is an electricity model that models the Greek power sector, dissecting it in 21 regions: 10 mainland NUTS-2 regions and 11 major Greek insular grids, being characterised by high temporal, spatial and technological granularity. 
+
+HERMES is developed from the EPU-NTUA lab, by Anastasios Karamaneas, Thomas Nikolakakis, Kimon Georgiou, Sophia Kokkoni, Natasha Frilingou, Konstantinos Koasidis, George Xexakis, Georgios Trachanas, John Psarras, Haris Doukas & Alexandros Nikas.
 
 Running HERMES requires installing the GLPK and CPLEX solvers. GLPK is an open solver, while CPLEX is also free for academic use, both used through a Python Command prompt (e.g. Miniconda). After installing a Python Command Prompt a set of python packages must also be installed as indicated in the requirements.txt in this repository.
 
