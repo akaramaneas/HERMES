@@ -1,10 +1,10 @@
-# HERMES
+# OSeMOSYS FAST
 #
-# HEllenic Regional Model for the Energy System
+# Open Source energy MOdeling SYStem
 # 
 # ============================================================================
 #
-#    Copyright [2010-2026] [OSeMOSYS Forum steering committee see: www.osemosys.org]
+#    Copyright [2010-2015] [OSeMOSYS Forum steering committee see: www.osemosys.org]
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -18,6 +18,13 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 # ============================================================================
+#
+#  To run OSeMOSYS, enter the following line into your command prompt after replacing FILEPATH & YOURDATAFILE with your folder structure and data file name:
+#
+#  C:\...FILEPATH...\glpsol -m C:\...FILEPATH...\OSeMOSYS_2016_08_01_short.txt -d C:\...FILEPATH...\YOURDATAFILE.txt -o C:\...FILEPATH...\Results.txt
+#
+#  Alternatively, install GUSEK (http://gusek.sourceforge.net/gusek.html) and run the model within this integrated development environment (IDE).
+#  To do so, open the .dat file and select "Use External .dat file" from the Options menu. Then change to the model file and select the "Go" icon or press F5.
 #
 #                                      #########################################
 ######################                        Model Definition                                #############
@@ -48,6 +55,7 @@ param Ordy{yi in YEAR_INDEX};
 
 set HYDROTECHS;
 set LIMITEDTECHS;
+set PHSTORAGE; #identifies the HPS plants
 
 #
 #####################
@@ -181,12 +189,12 @@ param OperationalLifeInterconnection{r in REGION, i in INTERCONNECTION}; #operat
 param ResidualCapacityInterconnection{r in REGION, i in INTERCONNECTION, f in FUEL, y in YEAR}; #residual capacity of interconnectors
 param CapacityToActivityUnitInter{r in REGION, i in INTERCONNECTION}; #same as capacitytoactivityunit but for interconnectors
 param TotalAnnualMaxCapacityInter{r in REGION, i in INTERCONNECTION, f in FUEL, y in YEAR}; #max import/export total capacity
-param TotalAnnualMaxNetImportsLimit{r in REGION, f in FUEL, y in YEAR}; #max percentage of net imports compared to demand per year, set to elec_Demand not Elec_transmission
-param TotalAnnualMaxNetExportsLimit{r in REGION, f in FUEL, y in YEAR}; #max percentage of net exports compared to demand per year, set to elec_Demand not Elec_transmission
-param TotalAnnualMaxImportsLimit{r in REGION, f in FUEL, y in YEAR}; #max percentage of imports compared to demand per year, set to elec_Demand not Elec_transmission
-param TotalAnnualMaxExportsLimit{r in REGION, f in FUEL, y in YEAR}; #max percentage of imports compared to demand per year, set to elec_Demand not Elec_transmission
-param TotalTSMaxImportsLimit{r in REGION, f in FUEL, y in YEAR}; #max percentage of imports compared to demand per TS, set to elec_Demand not Elec_transmission
-param TotalTSMaxExportsLimit{r in REGION, f in FUEL, y in YEAR}; #max percentage of exports compared to demand per TS, set to elec_Demand not Elec_transmission
+param TotalAnnualMaxNetImportsLimit{f in FUEL, y in YEAR}; #max percentage of net imports compared to demand per year, set to elec_Demand not Elec_transmission
+param TotalAnnualMaxNetExportsLimit{f in FUEL, y in YEAR}; #max percentage of net exports compared to demand per year, set to elec_Demand not Elec_transmission
+param TotalAnnualMaxImportsLimit{f in FUEL, y in YEAR}; #max percentage of imports compared to demand per year, set to elec_Demand not Elec_transmission
+param TotalAnnualMaxExportsLimit{f in FUEL, y in YEAR}; #max percentage of imports compared to demand per year, set to elec_Demand not Elec_transmission
+param TotalTSMaxImportsLimit{f in FUEL, y in YEAR}; #max percentage of imports compared to demand per TS, set to elec_Demand not Elec_transmission
+param TotalTSMaxExportsLimit{f in FUEL, y in YEAR}; #max percentage of exports compared to demand per TS, set to elec_Demand not Elec_transmission
 
 param TradeLimit{r in REGION, rr in REGION, f in FUEL, y in YEAR}; #max capacity in GW for regional/island interconnections
 
@@ -576,13 +584,13 @@ s.t. v1_AnnCapex{(r,t) in REGION_TECH_VALID, yi in YEAR_INDEX}: vAnnCapex[r,t,Or
 
 s.t. v1_DiscountedAnnCapex{(r,t) in REGION_TECH_VALID, y in YEAR}: DiscountedvAnnCapex[r,t,y] = vAnnCapex[r,t,y] / DiscountFactor[r,y];
 
-s.t. v1_AnnCapexStor{(r,s) in REGION_STOR_VALID, yi in YEAR_INDEX}: vAnnCapexStor[r,s,Ordy[yi]] = sum{yy in YEAR_INDEX: Ordy[yy] <= Ordy[yi] && Ordy[yi] < Ordy[yy] + OperationalLifeStorage[r,s]} CapStorCAPEX[r,s,Ordy[yy]] * NewStorageCapacity[r,s,Ordy[yy]] * CapitalRecoveryFactorStorage[r,s];
+s.t. v1_AnnCapexStor{r in REGION, s in STORAGE, yi in YEAR_INDEX}: vAnnCapexStor[r,s,Ordy[yi]] = sum{yy in YEAR_INDEX: Ordy[yy] <= Ordy[yi] && Ordy[yi] < Ordy[yy] + OperationalLifeStorage[r,s]} CapStorCAPEX[r,s,Ordy[yy]] * NewStorageCapacity[r,s,Ordy[yy]] * CapitalRecoveryFactorStorage[r,s];
 
 #s.t. v1_AnnCapexStorY1{r in REGION, s in STORAGE, y in YEAR: y = min{yy in YEAR} min(yy)}: vAnnCapexStor[r,s,y] = CapStorCAPEX[r,s,y] * NewStorageCapacity[r,s,y] * CapitalRecoveryFactorStorage[r,s];
 #s.t. v1_AnnCapexStorYA{r in REGION, s in STORAGE, yi in YEAR_INDEX: Ordy[yi] > min{yy in YEAR} min(yy)}: vAnnCapexStor[r,s,Ordy[yi]] = CapStorCAPEX[r,s,Ordy[yi]] * NewStorageCapacity[r,s,Ordy[yi]] * CapitalRecoveryFactorStorage[r,s] + vAnnCapexStor[r,s,Ordy[yi-1]];
 
 
-s.t. v1_DiscountedAnnStorCapex{(r,s) in REGION_STOR_VALID, y in YEAR}: DiscountedvAnnCapexStor[r,s,y] = vAnnCapexStor[r,s,y] / DiscountFactor[r,y];
+s.t. v1_DiscountedAnnStorCapex{r in REGION, s in STORAGE, y in YEAR}: DiscountedvAnnCapexStor[r,s,y] = vAnnCapexStor[r,s,y] / DiscountFactor[r,y];
 
 
 #Interconnection Costs #imports/exports
@@ -671,13 +679,13 @@ s.t. EBb4_EnergyBalanceEachYear4{(r,f) in REGION_FUEL_VALID, y in YEAR}: sum{(m,
 
 s.t. IC1_ImportsConstraint1{(r,i) in REGION_INTER_VALID, f in FUEL, l in TIMESLICE, y in YEAR}: Imports[r,i,f,l,y]*YearSplit[l,y] <= ((sum{yy in YEAR: y-yy < OperationalLifeInterconnection[r,i] && y-yy>=0} NewCapacityInterconnection[r,i,f,yy])+ ResidualCapacityInterconnection[r,i,f,y])*CapacityToActivityUnitInter[r,i]*YearSplit[l,y];
 s.t. IC2_ExportsConstraint1{(r,i) in REGION_INTER_VALID, f in FUEL, l in TIMESLICE, y in YEAR}: Exports[r,i,f,l,y]*YearSplit[l,y] <= ((sum{yy in YEAR: y-yy < OperationalLifeInterconnection[r,i] && y-yy>=0} NewCapacityInterconnection[r,i,f,yy])+ ResidualCapacityInterconnection[r,i,f,y])*CapacityToActivityUnitInter[r,i]*YearSplit[l,y];
-s.t. IC3_TotalNetImportAnnualConstraint1{r in REGION, y in YEAR}: sum{i in INTERCONNECTION, f in FUEL, l in TIMESLICE} (Imports[r,i,f,l,y]*YearSplit[l,y]-Exports[r,i,f,l,y]*YearSplit[l,y]) <= sum{f in FUEL} SpecifiedAnnualDemand[r,f,y]*TotalAnnualMaxNetImportsLimit[r,f,y]; #we add all fuels since SpecifiedDemand is for Elec_Demand whereas Imports/export in Elec_Transmission, moreover Imports/exports work only for Transmission and Spec.Demand only for Demand
-s.t. IC4_TotalNetExportAnnualConstraint1{r in REGION, y in YEAR}: sum{i in INTERCONNECTION, f in FUEL, l in TIMESLICE} (Exports[r,i,f,l,y]*YearSplit[l,y]-Imports[r,i,f,l,y]*YearSplit[l,y]) <= sum{f in FUEL} SpecifiedAnnualDemand[r,f,y]*TotalAnnualMaxNetExportsLimit[r,f,y];
-s.t. IC5_TotalImportTSConstraint1{r in REGION, l in TIMESLICE, y in YEAR}: sum{i in INTERCONNECTION, f in FUEL} (Imports[r,i,f,l,y]*YearSplit[l,y]) <= sum{f in FUEL} SpecifiedAnnualDemand[r,f,y]*SpecifiedDemandProfile[r,f,l,y]*TotalTSMaxImportsLimit[r,f,y]; #we add all fuels since SpecifiedDemand is for Elec_Demand whereas Imports/export in Elec_Transmission, moreover Imports/exports work only for Transmission and Spec.Demand only for Demand
-s.t. IC6_TotalExportTSConstraint1{r in REGION, l in TIMESLICE, y in YEAR}: sum{i in INTERCONNECTION, f in FUEL} (Exports[r,i,f,l,y]*YearSplit[l,y]) <= sum{f in FUEL} SpecifiedAnnualDemand[r,f,y]*SpecifiedDemandProfile[r,f,l,y]*TotalTSMaxExportsLimit[r,f,y];
-s.t. IC7_TotalImportAnnualConstraint1{r in REGION, y in YEAR}: sum{i in INTERCONNECTION, f in FUEL, l in TIMESLICE} (Imports[r,i,f,l,y]*YearSplit[l,y]) <= sum{f in FUEL} SpecifiedAnnualDemand[r,f,y]*TotalAnnualMaxImportsLimit[r,f,y];
-s.t. IC8_TotalExportAnnualConstraint1{r in REGION, y in YEAR}: sum{i in INTERCONNECTION, f in FUEL, l in TIMESLICE} (Exports[r,i,f,l,y]*YearSplit[l,y]) <= sum{f in FUEL} SpecifiedAnnualDemand[r,f,y]*TotalAnnualMaxExportsLimit[r,f,y];
-s.t. TCCI1_TotalAnnualMaxCapacityInterconncetionConstraint{(r,i,f) in REGION_INTER_FUEL_VALID, y in YEAR: TotalAnnualMaxCapacityInter[r,i,f,y] <> -1}:
+s.t. IC3_TotalNetImportAnnualConstraint1{y in YEAR}: sum{(r,i) in REGION_INTER_VALID, f in FUEL, l in TIMESLICE} (Imports[r,i,f,l,y]*YearSplit[l,y]-Exports[r,i,f,l,y]*YearSplit[l,y]) <= sum{r in REGION, f in FUEL} SpecifiedAnnualDemand[r,f,y]*TotalAnnualMaxNetImportsLimit[f,y]; #we add all fuels since SpecifiedDemand is for Elec_Demand whereas Imports/export in Elec_Transmission, moreover Imports/exports work only for Transmission and Spec.Demand only for Demand
+s.t. IC4_TotalNetExportAnnualConstraint1{y in YEAR}: sum{(r,i) in REGION_INTER_VALID, f in FUEL, l in TIMESLICE} (Exports[r,i,f,l,y]*YearSplit[l,y]-Imports[r,i,f,l,y]*YearSplit[l,y]) <= sum{r in REGION, f in FUEL} SpecifiedAnnualDemand[r,f,y]*TotalAnnualMaxNetExportsLimit[f,y];
+s.t. IC5_TotalImportTSConstraint1{l in TIMESLICE, y in YEAR}: sum{(r,i) in REGION_INTER_VALID, f in FUEL} (Imports[r,i,f,l,y]*YearSplit[l,y]) <= sum{r in REGION, f in FUEL} SpecifiedAnnualDemand[r,f,y]*SpecifiedDemandProfile[r,f,l,y]*TotalTSMaxImportsLimit[f,y]; #we add all fuels since SpecifiedDemand is for Elec_Demand whereas Imports/export in Elec_Transmission, moreover Imports/exports work only for Transmission and Spec.Demand only for Demand
+s.t. IC6_TotalExportTSConstraint1{l in TIMESLICE, y in YEAR}: sum{(r,i) in REGION_INTER_VALID, f in FUEL} (Exports[r,i,f,l,y]*YearSplit[l,y]) <= sum{r in REGION, f in FUEL} SpecifiedAnnualDemand[r,f,y]*SpecifiedDemandProfile[r,f,l,y]*TotalTSMaxExportsLimit[f,y];
+s.t. IC7_TotalImportAnnualConstraint1{y in YEAR}: sum{(r,i) in REGION_INTER_VALID, f in FUEL, l in TIMESLICE} (Imports[r,i,f,l,y]*YearSplit[l,y]) <= sum{r in REGION, f in FUEL} SpecifiedAnnualDemand[r,f,y]*TotalAnnualMaxImportsLimit[f,y];
+s.t. IC8_TotalExportAnnualConstraint1{y in YEAR}: sum{(r,i) in REGION_INTER_VALID, f in FUEL, l in TIMESLICE} (Exports[r,i,f,l,y]*YearSplit[l,y]) <= sum{r in REGION, f in FUEL} SpecifiedAnnualDemand[r,f,y]*TotalAnnualMaxExportsLimit[f,y];
+s.t. TCCI1_TotalAnnualMaxCapacityInterconncetionConstraint{(r,i) in REGION_INTER_VALID, f in FUEL, y in YEAR: TotalAnnualMaxCapacityInter[r,i,f,y] <> -1}:
     ((sum{yy in YEAR: y-yy < OperationalLifeInterconnection[r,i] && y-yy>=0} NewCapacityInterconnection[r,i,f,yy])+ ResidualCapacityInterconnection[r,i,f,y])
     <=
     TotalAnnualMaxCapacityInter[r,i,f,y];
@@ -770,7 +778,13 @@ StorageLevel[r,s,ls,ld,lh-1,y]+ (((sum{(m,t) in MODExTECHNOLOGYperSTORAGEto[r,s]
 
 s.t. S4New{(r,s) in REGION_STOR_VALID, ls in SEASON, ld in DAYTYPE, y in YEAR}:
 #This equation is telling that within a representative day the energy balance (based on the efficiency of storage technology) need to be maintained
-sum{lh in DAILYTIMEBRACKET}((sum{(m,t) in MODExTECHNOLOGYperSTORAGEto[r,s], l in TIMESLICEofSDB[ls,ld,lh]} RateOfActivity[r,l,t,m,y] * TechnologyToStorage[r,t,s,m]*EfficiencyStorage[r,s,y]* DaySplit[lh,y]) - (sum{(m,t) in MODExTECHNOLOGYperSTORAGEfrom[r,s], l in TIMESLICEofSDB[ls,ld,lh]} RateOfActivity[r,l,t,m,y] * TechnologyFromStorage[r,t,s,m]* DaySplit[lh,y])) = 0;  
+sum{lh in DAILYTIMEBRACKET}((sum{(m,t) in MODExTECHNOLOGYperSTORAGEto[r,s], l in TIMESLICEofSDB[ls,ld,lh]} RateOfActivity[r,l,t,m,y] * TechnologyToStorage[r,t,s,m]*EfficiencyStorage[r,s,y]* DaySplit[lh,y]) - (sum{(m,t) in MODExTECHNOLOGYperSTORAGEfrom[r,s], l in TIMESLICEofSDB[ls,ld,lh]} RateOfActivity[r,l,t,m,y] * TechnologyFromStorage[r,t,s,m]* DaySplit[lh,y])) = 0;
+
+s.t. Storage_PH_10h{r in REGION, sph in PHSTORAGE, y in YEAR}:
+(sum{yy in YEAR: y-yy < OperationalLifeStorage[r,sph] && y-yy>=0} NewStorageCapacity[r,sph,yy]+ResidualStorageCapacity[r,sph,y]) =
+10 * 0.0036 * (
+sum{(m,t) in MODExTECHNOLOGYperSTORAGEto[r,sph], yy in YEAR: y-yy < OperationalLife[r,t] && y-yy>=0} NewCapacity[r,t,yy] * TechnologyToStorage[r,t,sph,m] +
+ sum{(m,t) in MODExTECHNOLOGYperSTORAGEto[r,sph]} ResidualCapacity[r,t,y] * TechnologyToStorage[r,t,sph,m]);  
 
 
 #s.t. S5_DemZero{}
