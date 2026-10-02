@@ -1,6 +1,66 @@
 import pandas as pd
 import os
 
+import pandas as pd
+import os
+
+
+def apply_net_storage_flows(df, techs_with_modes_to_aggr_df):
+    """
+    For each storage technology listed in techs_with_modes_to_aggr_df,
+    compute net charge and net discharge per timeslice from the
+    aggregated charge/discharge columns in df.
+
+    - Keeps the same column names as in AGRR_TECH (e.g. 'Batteries_Charge',
+      'Batteries_Discharge').
+    - Ensures that for each technology and timeslice, at most ONE of the
+      charge/discharge columns is positive (the other is zero).
+    - No technology names are hard-coded; everything comes from the CSV.
+    """
+    df = df.copy()
+
+    temp = techs_with_modes_to_aggr_df.copy()
+    temp['AGRR_TECH'] = temp['AGRR_TECH'].astype(str)
+
+    # Classify aggregated tech names as "charge" or "discharge" purely by name pattern
+    temp['is_discharge'] = temp['AGRR_TECH'].str.lower().str.contains('discharge')
+    # Mark as charge if it contains 'charge' but is not already tagged as discharge
+    temp['is_charge'] = temp['AGRR_TECH'].str.lower().str.contains('charge') & ~temp['is_discharge']
+
+    for tech in temp['TECHNOLOGY'].unique():
+        tech_rows = temp[temp['TECHNOLOGY'] == tech]
+
+        charge_names = tech_rows.loc[tech_rows['is_charge'], 'AGRR_TECH'].tolist()
+        discharge_names = tech_rows.loc[tech_rows['is_discharge'], 'AGRR_TECH'].tolist()
+
+        # Only keep columns that actually exist in df
+        charge_cols = [c for c in charge_names if c in df.columns]
+        discharge_cols = [c for c in discharge_names if c in df.columns]
+
+        # If we don't have both sides, nothing to net out
+        if not charge_cols or not discharge_cols:
+            continue
+
+        # Sum all charge/discharge columns for this technology
+        total_charge = df[charge_cols].sum(axis=1)
+        total_discharge = df[discharge_cols].sum(axis=1)
+
+        # Net flows: only one direction is positive per timeslice
+        net_charge = (total_charge - total_discharge).clip(lower=0)
+        net_discharge = (total_discharge - total_charge).clip(lower=0)
+
+        # Put net charge into the first charge column, net discharge into first discharge column
+        df[charge_cols[0]] = net_charge
+        df[discharge_cols[0]] = net_discharge
+
+        # Zero out any extra charge/discharge columns for this tech (if they exist)
+        for col in charge_cols[1:]:
+            df[col] = 0.0
+        for col in discharge_cols[1:]:
+            df[col] = 0.0
+
+    return df
+
 
 def transform_names_with_modes(df, df_with_modes):
     """
@@ -267,27 +327,64 @@ def process_region_data(
         temp_trade_df = pd.DataFrame(index=prod_pr['TIMESLICE'].unique())
         temp_trade_df.index.name = 'TIMESLICE'
 
-        # `regional_trade_data_processed` is no longer needed as `regional_trade_data` is already standardized
-        # print("DEBUG TRADE: Populating trade columns...")
-        for _, row in regional_trade_data.iterrows():  # Use regional_trade_data directly
+        # -----------------------------------------------------------
+        # Ensure consistent trade columns across all regions & years
+        # Identify all possible partner regions
+        # -----------------------------------------------------------
+        all_regions = sorted(trade_data_all['REGION1'].unique().tolist())
+
+        # Remove region itself
+        partners = [r for r in all_regions if r != clean_region_name]
+
+        # Pre-create all trade columns (even if all values will be zero)
+        for p in partners:
+            to_col = f"Trade_To_{p}"
+            from_col = f"Trade_From_{p}"
+
+            if to_col not in temp_trade_df.columns:
+                temp_trade_df[to_col] = 0.0
+            if from_col not in temp_trade_df.columns:
+                temp_trade_df[from_col] = 0.0
+
+
+        # Use OSeMOSYS trade convention:
+        # Trade[R,X] > 0  → export from R to X
+        # Trade[R,X] < 0  → import to R from X
+        # We only use rows where REGION1 == clean_region_name to avoid double counting.
+        for _, row in regional_trade_data.iterrows():
             timeslice = row['TIMESLICE']
             value = row['VALUE']
-            region1 = row['REGION1']
-            region2 = row['REGION2']
+            r1 = row['REGION1']
+            r2 = row['REGION2']
 
-            col_name = None
+# Consider only rows where this region is REGION1 (source in OSeMOSYS definition)
+            if r1 != clean_region_name:
+                continue
 
-            # Only create trade columns if region1 and region2 are different
-            if region1 != region2:
-                if region2 == clean_region_name:  # Incoming trade (import) from a *different* region
-                    col_name = f'Trade_From_{region1}'
-                elif region1 == clean_region_name:  # Outgoing trade (export) to a *different* region
-                    col_name = f'Trade_To_{region2}'
+            # Ignore self-trade just in case
+            if r1 == r2:
+                continue
+                                                      
+                                                                                                     
+                                                    
 
-            if col_name and timeslice in temp_trade_df.index:
+            partner = r2
+
+            if value > 0:
+                # Export from region to partner
+                col_name = f'Trade_To_{partner}'
+                mag = value
+            elif value < 0:
+                # Import to region from partner
+                col_name = f'Trade_From_{partner}'
+                mag = -value  # store as positive magnitude
+            else:
+                continue  # zero flow, skip
+
+            if timeslice in temp_trade_df.index:
                 if col_name not in temp_trade_df.columns:
                     temp_trade_df[col_name] = 0.0
-                temp_trade_df.loc[timeslice, col_name] += value
+                temp_trade_df.loc[timeslice, col_name] += mag
             # else:
             # print(f"DEBUG TRADE: Skipping trade row (col_name is None or timeslice not in prod_pr index): {row.to_dict()}")
 
@@ -297,11 +394,44 @@ def process_region_data(
         trade_cols_from_temp = [col for col in temp_trade_df.columns if col != 'TIMESLICE']
         prod_pr[trade_cols_from_temp] = prod_pr[trade_cols_from_temp].fillna(0)
 
+         # --- Regional-only: Add sum of Trade From and Trade To columns ---
+        # Instead of summing the partner columns (which can double-count),
+        # derive the sums directly from regional_trade_data using the OSeMOSYS convention:
+        # Trade[a,b] = +v, Trade[b,a] = -v. We only use the positive rows.
+
+        # Sum of imports (to this region) per TIMESLICE
+        imports_ts = (
+            regional_trade_data[
+                (regional_trade_data['REGION2'] == clean_region_name) &
+                (regional_trade_data['VALUE'] > 0)
+            ]
+            .groupby('TIMESLICE')['VALUE']
+            .sum()
+        )
+
+        # Sum of exports (from this region) per TIMESLICE
+        exports_ts = (
+            regional_trade_data[
+                (regional_trade_data['REGION1'] == clean_region_name) &
+                (regional_trade_data['VALUE'] > 0)
+            ]
+            .groupby('TIMESLICE')['VALUE']
+            .sum()
+        )
+
+        # Map these back onto prod_pr by TIMESLICE; missing TS → 0
+        prod_pr['Trade_From_Sum'] = prod_pr['TIMESLICE'].map(imports_ts).fillna(0.0)
+        prod_pr['Trade_To_Sum']   = prod_pr['TIMESLICE'].map(exports_ts).fillna(0.0)
+
+                                                                          
     # After merge, prod_pr now has all columns.
     # print(f"DEBUG TRADE: All columns in prod_pr before final sort and pivot: {prod_pr.columns.tolist()}")
     # print(f"DEBUG TRADE: Number of columns in prod_pr before final sort and pivot: {len(prod_pr.columns)}")
 
     prod_pr_sorted = prod_pr.sort_values(by='TIMESLICE', key=sort_key_func).reset_index(drop=True)
+    # Combine charge/discharge flows into net charge and net discharge for storage technologies
+    prod_pr_sorted = apply_net_storage_flows(prod_pr_sorted, techs_with_modes_to_aggr_df)
+
 
     # Timeslice adjustment
     if year_split_region.empty:
@@ -343,6 +473,26 @@ def process_region_data(
                                                                                     axis=0)
         prod_pr_sorted_adj = prod_pr_sorted_adj.drop(columns=['VALUE_ADJ'])
 
+    # --- Regional-only: Sum of trade flows after YearSplit adjustment ---
+        # Correct summation excluding the _Sum columns themselves
+        trade_from_cols = [
+            c for c in prod_pr_sorted_adj.columns
+            if c.startswith('Trade_From_') and c != 'Trade_From_Sum'
+        ]
+
+        trade_to_cols = [
+            c for c in prod_pr_sorted_adj.columns
+            if c.startswith('Trade_To_') and c != 'Trade_To_Sum'
+        ]
+
+        prod_pr_sorted_adj['Trade_From_Sum'] = (
+            prod_pr_sorted_adj[trade_from_cols].sum(axis=1) if trade_from_cols else 0.0
+        )
+
+        prod_pr_sorted_adj['Trade_To_Sum'] = (
+            prod_pr_sorted_adj[trade_to_cols].sum(axis=1) if trade_to_cols else 0.0
+        )
+    
     # Storage Level (These values are state variables, not flows, so they remain unadjusted by YearSplit)
     # This loop now relies on `storage_level_region` being correctly processed above
     if not storage_level_region.empty:  # Only proceed if storage data was successfully prepared
@@ -515,6 +665,8 @@ for active_year in active_years:
             for col in df.columns:
                 if col.startswith('Trade_From_') or col.startswith('Trade_To_'):
                     trade_columns_to_exclude_from_sum.add(col)
+                    trade_columns_to_exclude_from_sum.add('Trade_From_Sum')
+                    trade_columns_to_exclude_from_sum.add('Trade_To_Sum')
 
         # Reindex all regional dataframes to have the same columns
         reindexed_results = [df.reindex(columns=all_columns_union, fill_value=0) for df in
