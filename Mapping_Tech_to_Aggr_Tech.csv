@@ -45,8 +45,8 @@ Chios,Oil_Ex
 Samos,Oil_Ex
 Karpathos,Oil_Ex
 Thira,Oil_Ex
-Other_Cyclades,Oil_Ex
-Other_Aegean,Oil_Ex
+Skyros,Oil_Ex
+Serifos,Oil_Ex
 Agra,HydroStor_Ex
 Asomaton,HydroStor_Ex
 Edeseou,HydroStor_Ex
@@ -75,7 +75,9 @@ Biomass,Biomass
 Geothermal_HI,Geo
 Geothermal_ME,Geo
 OffshoreWind,Offshore
-Batteries,Storage
 Biomass_CCS,Biomass_CCS
 Gas_CCS,Gas_CCS
-Batteries_New,Storage_New
+Batteries_New,Batteries_New
+Sfikia,HPS
+Thisavros,HPS
+HPS_New,HPS_New
